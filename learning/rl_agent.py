@@ -145,6 +145,55 @@ class RLAgent(abc.ABC):
             iter += 1
 
         return
+
+    def op_train(self, max_iter, test_episodes, output_dir, output_iters):
+        log_file = os.path.join(output_dir, "log.txt")
+        self._logger = logger.Logger()
+        self._logger.configure_output_file(log_file)
+        
+        model_file = os.path.join(output_dir, "model.ckpt")
+
+        iter = 0
+        test_return = 0
+        test_path_count = 0
+        start_time = time.time()
+
+        while (iter < max_iter):
+            total_samples = self.get_total_samples()
+            wall_time = time.time() - start_time
+            wall_time /= 60 * 60 # store time in hours
+            
+            self._logger.log_tabular("Iteration", iter)
+            self._logger.log_tabular("Wall_Time", wall_time)
+            self._logger.log_tabular("Samples", total_samples)
+            self._logger.log_tabular("Test_Return", test_return)
+            self._logger.log_tabular("Test_Paths", test_path_count)
+            
+            if (self._need_normalizer_update() and iter == 0):
+                self._update_normalizers()
+
+            self._update(iter, self._samples_per_iter)
+            
+            if (self._need_normalizer_update()):
+                self._update_normalizers()
+
+            if (iter % output_iters == 0):
+                test_return, test_path_count = self._rollout_test(test_episodes, print_info=False)
+                self._logger.log_tabular("Test_Return", test_return)
+                self._logger.log_tabular("Test_Paths", test_path_count)
+
+                self.save_model(model_file)
+                self._logger.print_tabular()
+                self._logger.dump_tabular()
+                
+                total_train_return = 0
+                total_train_path_count = 0
+            else:
+                self._logger.print_tabular()
+
+            iter += 1
+
+        return
     
     def save_model(self, out_path):
         try:
@@ -267,6 +316,18 @@ class RLAgent(abc.ABC):
         assert len(vars) > 0
         self._saver = tf.train.Saver(vars, max_to_keep=0)
         return
+
+    def clear_buffer(self):
+        self._replay_buffer.clear()
+
+    def add_to_buffer(self, path):
+        path_id = self._replay_buffer.store(path)
+        valid_path = path_id != replay_buffer.INVALID_IDX
+        if valid_path:
+            if (self._enable_normalizer_update()):
+                self._record_normalizers(path)
+        else:
+            assert False, "Invalid path detected"
     
     def _rollout_train(self, num_samples):
         new_sample_count = 0
@@ -455,3 +516,4 @@ class RLAgent(abc.ABC):
         loss = a_pd_tf.entropy()
         loss = -tf.reduce_mean(loss)
         return loss
+

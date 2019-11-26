@@ -65,7 +65,7 @@ class AWRAgent(rl_agent.RLAgent):
         self._temp = temp
         
         self._critic_step_count = 0
-        self._actor_steps_count = 0
+        self._actor_step_count = 0
 
         self._actor_bound_loss_weight = 10.0
 
