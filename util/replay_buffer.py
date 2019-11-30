@@ -56,17 +56,17 @@ class ReplayBuffer(object):
         self.buffers['rewards'][valid_ind] = (self.buffers["c"][valid_ind] + \
             np.dot(lamb[:-1], self.buffers["g"][valid_ind].T))/self.scale
 
-    def set_cost(self, key, idx):
+    def set_reward(self, key, idx):
         valid_ind = self.buffers["path_start"] != 0
 
         if key == 'c':
             self.scale = np.max(np.abs(self.buffers['c'][valid_ind]))
-            self.data['cost'] = self.data['c']/self.scale
+            self.data['rewards'] = self.data['c']/self.scale
 
         elif key == 'g':
             # Pick the idx'th constraint
             self.scale = np.max(np.abs(self.buffers['g'][valid_ind][:,idx]))
-            self.data['cost'] = self.data['g'][:,idx]/self.scale
+            self.data['rewards'] = self.data['g'][:,idx]/self.scale
         else:
             raise
 
@@ -271,7 +271,7 @@ class ReplayBuffer(object):
                 
                 self.buffers[key] = np.zeros(shape, dtype=dtype)
 
-        self.buffer["cost"] = np.zeros([self.buffer_size], dtype=np.float)
+        self.buffer["rewards"] = np.zeros([self.buffer_size], dtype=np.float)
 
         return
 
