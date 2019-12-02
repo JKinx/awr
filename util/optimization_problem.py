@@ -2,13 +2,12 @@ import numpy as np
 from copy import deepcopy
 from util.value_function import ValueFunction
 import pandas as pd
-from replay_buffer import Dataset  # TODO
 import deepdish as dd
 from tqdm import tqdm
 
 
 class OptProblem(object):
-    def __init__(self, constraints, action_space_dim, best_response_algorithm, online_convex_algorithm, fitted_off_policy_evaluation_algorithm, exact_policy_algorithm, lambda_bound = 1., epsilon = .01, env= None, max_iterations=None, num_frame_stack=None, pic_size=None):
+    def __init__(self, constraints, dataset, best_response_algorithm, online_convex_algorithm, fitted_off_policy_evaluation_algorithm, exact_policy_algorithm, lambda_bound = 1., epsilon = .01, env= None, max_iterations=None):
         '''
         This is a problem of the form: min_pi C(pi) where G(pi) < eta.
 
@@ -23,13 +22,12 @@ class OptProblem(object):
         env: The environment. Used for exact policy evaluation to test fittedqevaluation
         '''
 
-        self.dataset = Dataset(num_frame_stack, pic_size, (len(constraints) + 1,) )
+        self.dataset = dataset
         self.constraints = constraints
         self.C = ValueFunction()
         self.G = ValueFunction()
         self.C_exact = ValueFunction()
         self.G_exact = ValueFunction()
-        self.action_space_dim = action_space_dim
         self.dim = len(constraints)
         self.lambda_bound = lambda_bound
         self.epsilon = epsilon
@@ -43,13 +41,12 @@ class OptProblem(object):
         self.max_iterations = max_iterations if max_iterations is not None else np.inf
         self.iteration = -2
 
-    def best_response(self, lamb, idx=0, **kw):
+    def best_response(self, lamb):
         '''
         Best-response(lambda) = argmin_{pi} L(pi, lambda)
         '''
-        # dataset = deepcopy(self.dataset)
-        self.dataset.calculate_cost(lamb)
-        policy = self.best_response_algorithm.run(self.dataset, **kw)
+        self.dataset.calculate_reward(lamb)
+        policy = self.best_response_algorithm.run(self.dataset)
         return policy
 
     def online_algo(self):
@@ -95,42 +92,25 @@ class OptProblem(object):
         '''
 
         # print 'Calculating best-response(lambda_avg)'
-        best_policy, values = self.best_response(lamb, idx=1, desc='FQI pi(lambda_avg)', exact=self.exact_policy_evaluation)
-
-        if self.env.env_type == 'car':
-            dataset_length = len(self.dataset)
-            batch_size = 512
-            num_batches = int(np.ceil(dataset_length/float(batch_size)))
-
-            actions = []
-            all_idxs = range(dataset_length)
-            print('Creating best_response(x\')')
-            for i in tqdm(range(num_batches)):
-                idxs = all_idxs[(batch_size*i):(batch_size*(i+1))]
-                states = np.rollaxis(self.dataset['frames'][self.dataset['next_states'][idxs]],1,4)
-                actions.append(best_policy([states], x_preprocessed=True))
-
-            self.dataset.data['pi_of_x_prime'] = np.hstack(actions)
-
+        best_policy = self.best_response(lamb)
 
         # print 'Calculating C(best_response(lambda_avg))'
         # dataset = deepcopy(self.dataset)
-        C_br, values = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'c', self.dataset, desc='FQE C(pi(lambda_avg))')
+        C_br, _ = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'c', self.dataset)
 
         # print 'Calculating G(best_response(lambda_avg))'
-        G_br = []
+        G_br, _ = []
         for i in range(self.dim-1):
             # dataset = deepcopy(self.dataset)
-            output, values = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'g', self.dataset,  desc='FQE G_%s(pi(lambda_avg))'% i, g_idx=i)
+            output = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'g', self.dataset, g_idx=i)
             G_br.append(output)
+
         G_br.append(0)
         G_br = np.array(G_br)
 
         if self.env is not None:
             print('Calculating exact C, G policy evaluation')
-            exact_c, exact_g, performance = self.exact_policy_evaluation.run(best_policy, to_monitor=True)
-            if self.env.env_type == 'car':
-                exact_g = np.array(exact_g)[[-1, 2]]
+            exact_c, exact_g, performance = self.exact_policy_evaluation.run(best_policy)
 
         print()
         print('C(pi(lambda_avg)) Exact: %s, Evaluated: %s, Difference: %s' % (exact_c, C_br, np.abs(C_br-exact_c)))
@@ -142,25 +122,10 @@ class OptProblem(object):
 
     def update(self, policy, values, iteration):
 
-        if self.env.env_type=='car':
-            dataset_length = len(self.dataset)
-            batch_size = 512
-            num_batches = int(np.ceil(dataset_length/float(batch_size)))
-
-            actions = []
-            all_idxs = range(dataset_length)
-            print('Creating pi_%s(x\')' % iteration)
-            for i in tqdm(range(num_batches)):
-                idxs = all_idxs[(batch_size*i):(batch_size*(i+1))]
-                states = np.rollaxis(self.dataset['frames'][self.dataset['next_states'][idxs]],1,4)
-                actions.append(policy([states], x_preprocessed=True))
-
-            self.dataset.data['pi_of_x_prime'] = np.hstack(actions)
-
         # update C
         # dataset = deepcopy(self.dataset)
-        C_pi, eval_values = self.fitted_off_policy_evaluation_algorithm.run(policy,'c', self.dataset, desc='FQE C(pi_%s)' %  iteration)
-        self.C.append(C_pi, policy)
+        C_pi, eval_values = self.fitted_off_policy_evaluation_algorithm.run(policy,'c', self.dataset)
+        self.C.append(C_pi)
         C_pi = np.array(C_pi)
         self.C.add_exact_values(values)
         self.C.add_eval_values(eval_values, 0)
@@ -169,11 +134,11 @@ class OptProblem(object):
         G_pis = []
         for i in range(self.dim-1):
             # dataset = deepcopy(self.dataset)
-            output, eval_values = self.fitted_off_policy_evaluation_algorithm.run(policy,'g', self.dataset, desc='FQE G_%s(pi_%s)' %  (i, iteration), g_idx = i)
+            output, eval_values = self.fitted_off_policy_evaluation_algorithm.run(policy,'g', self.dataset, g_idx = i)
             G_pis.append(output)
             self.G.add_eval_values(eval_values, i)
         G_pis.append(0)
-        self.G.append(G_pis, policy)
+        self.G.append(G_pis)
         G_pis = np.array(G_pis)
 
         # Get Exact Policy
@@ -186,27 +151,12 @@ class OptProblem(object):
 
     def calc_exact(self, policy):
         print('Calculating exact C, G policy evaluation')
-        exact_c, exact_g, performance = self.exact_policy_evaluation.run(policy, to_monitor=True)
-        if self.env.env_type == 'car':
-            exact_g = np.array(exact_g)[[-1, 2]]
+        exact_c, exact_g, performance = self.exact_policy_evaluation.run(policy)
+
         self.C_exact.add_exact_values([performance])
         self.C_exact.append(exact_c)
         self.G_exact.append(np.hstack([exact_g, np.array([0])]))
         return exact_c, exact_g, performance
-
-    def collect(self, *data, **kw):
-        '''
-        Add more data
-        '''
-        if ('start' in kw) and kw['start']:
-            self.dataset.start_new_episode(*data)
-        else:
-            self.dataset.append(*data)
-
-    def finish_collection(self, env_type):
-        # preprocess
-        self.dataset.preprocess(env_type)
-        dd.io.save('%s.h5' % env_type, self.dataset.data)
 
     def is_over(self, policies, lambdas, infinite_loop=False, calculate_gap=True, results_name='results.csv', policy_improvement_name='policy_improvement.h5'):
         # lambdas: list. We care about average of all lambdas seen thus far
@@ -224,8 +174,6 @@ class OptProblem(object):
             else:
                 x = self.max_of_lagrangian_over_lambda()
                 y, c_br, g_br, c_br_exact, g_br_exact = self.min_of_lagrangian_over_policy(np.mean(lambdas, 0))
-                if self.env.env_type == 'car':
-                    g_br_exact = g_br_exact
 
             difference = x-y
 

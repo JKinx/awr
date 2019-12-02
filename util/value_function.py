@@ -8,18 +8,9 @@ class ValueFunction(object):
         self.prev_values = []
         self.exact_values = []
         self.eval_values = {}
-        # self.V = {}
-        # self.dim_state_space = dim_state_space
-        # self.non_terminal_states = non_terminal_states
 
-    def append(self, *args):
-        if len(args) == 1:
-            value = args[0]
-            self.prev_values.append(value)
-        elif len(args) == 2:
-            value, policy = args
-            self.prev_values.append(value)
-            # self.V[self.vectorize(policy)] = value
+    def append(self, value):
+        self.prev_values.append(value)
 
     def avg(self, append_zero=False):
         if append_zero:

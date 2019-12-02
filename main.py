@@ -10,7 +10,6 @@ import learning.awr_agent as awr_agent
 from util.optimization_problem import OptProblem
 from util.exponentiated_gradient import ExponentiatedGradient
 
-
 def main(args):
 
     # TODO: setup problem as well as algorithms
@@ -20,8 +19,8 @@ def main(args):
 
     problem = OptProblem(constraints,
                          action_space_dim,
-                         best_response_algoonline_convex_algorithmrithm,  # TODO
-                         ,
+                         best_response_algorithm,
+                         online_convex_algorithmrithm,  # TODO
                          fitted_off_policy_evaluation_algorithm,  # TODO
                          exact_policy_algorithm,  # TODO
                          lambda_bound,
