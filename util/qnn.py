@@ -41,3 +41,5 @@ class Q(nn.Module):
         loss = self.criterion(out, true_value)
         loss.backward()
         self.optimizer.step()
+        
+        return loss

@@ -62,25 +62,40 @@ class RLPath(object):
 
     def terminated(self):
         return self.terminate == Terminate.Null
+
+def compute_g(path):
+    g0 = (np.array(path.actions)[:,0] > 0.5).astype(np.float)
+    return g0.reshape(-1,1)
     
 class RLPath2(object):
-    def __init__(self, path):
+    def __init__(self, path, compute_g):
         self.states = np.array(path.states)
         self.actions = np.array(path.actions)
         self.rewards = np.array(path.rewards)
         self.costs = - self.rewards
         self.c = - self.rewards
-        self.g = self.compute_g(path)
+        self.g = compute_g(path)
 
         self.terminate = Terminate.Null
 
         self.clear()
-
         return
     
-    def compute_g(self, path):
-        g0 = (np.array(path.actions)[:,0] > 0).astype(np.float)
-        return g0.reshape(-1,1)
+    def calculate_cost(self, scale, lamb):
+        self.costs = (self.c + np.dot(lamb[:-1], self.g.T)) / scale
+        self.rewards = -self.costs
+    
+    def set_cost(self, scale, key, idx=None):
+        if key == 'c':
+            self.costs = self.c / scale
+            self.rewards = -self.costs
+        elif key == 'g':
+            assert idx is not None
+            # Pick the idx'th constraint
+            self.costs = self.g[:,idx] / scale
+            self.rewards = -self.costs 
+        else:
+            raise
     
     def pathlength(self):
         return len(self.actions)
@@ -115,7 +130,7 @@ class RLPath2(object):
         self.terminate = Terminate.Null
         return
     
-    def discounted_sum(self, discount, which="rewards"):
+    def discounted_sum(self, discount, which="costs"):
         factors = np.empty(len(self.rewards))
         factors[0] = 1
         factors[1:] = discount

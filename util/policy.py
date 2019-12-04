@@ -2,7 +2,10 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-def sample_action(agent, s, action_std):
+def sample_action(agent, s, action_std=None):
+    if action_std is None:
+        return agent.sample_action(s, True)[0]
+    
     n = len(s.shape)
     s = np.reshape(s, [-1, agent.get_state_size()])
 
@@ -27,8 +30,7 @@ class Policy(nn.Module):
     def __init__(self, agent, action_std=None):
         super().__init__()
         self.agent = agent
-
-        self.action_std = self.agent._action_std if action_std is None else action_std
+        self.action_std = action_std
 
     def forward(self, states):
         return sample_action(self.agent, states, self.action_std)

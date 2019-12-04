@@ -58,11 +58,12 @@ class ReplayBuffer(object):
 
         self.buffers['rewards'][valid_ind] = - self.buffers['costs'][valid_ind]
 
-    def set_reward(self, key, idx=None):
+    def set_cost(self, key, idx=None):
         valid_ind = self.buffers["path_start"] != INVALID_IDX
 
         if key == 'c':
             self.scale = np.max(np.abs(self.buffers['c'][valid_ind]))
+#             self.scale = 1
             self.buffers['costs'] = self.buffers['c']/self.scale
             self.buffers['rewards'] = - self.buffers['costs']
 
@@ -70,6 +71,7 @@ class ReplayBuffer(object):
             assert idx is not None
             # Pick the idx'th constraint
             self.scale = np.max(np.abs(self.buffers['g'][valid_ind][:,idx]))
+#             self.scale = 1
             self.buffers['costs'] = self.buffers['g'][:,idx]/self.scale
             self.buffers['rewards'] = - self.buffers['costs']
         else:
@@ -96,7 +98,7 @@ class ReplayBuffer(object):
             R = self.buffers["costs"][ind]
             
             ind = self.get_range((start + 1) % self.buffer_size, (end + 1) % self.buffer_size)
-            Sp = self.buffers["costs"][ind]
+            Sp = self.buffers["states"][ind]
             
             T = np.ones(len(S))
             T[-1] = 0
