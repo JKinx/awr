@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../")
+
 import awr_configs
 import learning.awr_agent as awr_agent
 import gym
@@ -59,6 +62,7 @@ def rollout_path(agent, action_std):
 
     path.terminate = agent._check_env_termination()
 
+    print('HERE')
     return rl_path.RLPath2(path)  # in order to compute constraints
 
 
@@ -172,6 +176,12 @@ class FittedQEvaluation(object):
 
 def get_data(paths, constraint):
     episodes = []
+    if constraint:
+        c_paths = []
+        for path in paths:
+            c_paths.append(rl_path.RLPath2(path))
+        paths = c_paths
+        # import pdb; pdb.set_trace()
 
     for path in paths:
         I = np.hstack([np.array(path.states)[:-1], np.array(path.actions)])
