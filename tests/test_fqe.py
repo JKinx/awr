@@ -194,7 +194,7 @@ if __name__ == "__main__":
 
     data_std = args.data_std
     configs = awr_configs.AWR_CONFIGS['Reacher-v2']
-    datas = get_data(pickle.load(open("output/Reacher-v2_{}_offline/Reacher-v2_{}_offline_paths.pickle".format(data_std, data_std), "rb")))
+    datas = get_data(pickle.load(open("../output/Reacher-v2_{}_offline/Reacher-v2_{}_offline_paths.pickle".format(data_std, data_std), "rb")))
 
     terminals = []
     for el in datas:
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     graph = tf.Graph()
     sess = tf.Session(graph=graph)
     agent = awr_agent.AWRAgent(env=env, sess=sess, **configs)
-    agent.load_model("output/Reacher-v2_{}_offline/model.ckpt".format(data_std))
+    agent.load_model("../output/Reacher-v2_{}_offline/model.ckpt".format(data_std))
 
     qnn = Q(agent.get_state_size(), agent.get_action_size(), 0.001).cuda()
 
@@ -249,5 +249,5 @@ if __name__ == "__main__":
     plt.xlabel("True Value")
     plt.ylabel("Prediction")
     plt.title("FQE: {}, {}, MSE: {}".format(data_std, eval_std, mse))
-    plt.savefig("output/Reacher-v2_FQE_{}_{}_{}.jpg".format(data_std, eval_std, num_epochs))
+    plt.savefig("../output/Reacher-v2_FQE_{}_{}_{}.jpg".format(data_std, eval_std, num_epochs))
     plt.show()
