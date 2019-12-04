@@ -96,6 +96,14 @@ class RLPath2(object):
             self.rewards = -self.costs 
         else:
             raise
+            
+    def compute_g(self, path):
+        g0g = (np.array(path.actions)[:,0] > 0.4).astype(np.float)
+        g0l = (np.array(path.actions)[:,0] < -0.4).astype(np.float)
+        g1g = (np.array(path.actions)[:,1] > 0.4).astype(np.float)
+        g1l = (np.array(path.actions)[:,1] < -0.4).astype(np.float)
+        g0 = g0g + g0l + g1g + g1l
+        return g0.reshape(-1,1)
     
     def pathlength(self):
         return len(self.actions)
