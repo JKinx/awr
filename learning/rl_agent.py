@@ -370,10 +370,14 @@ class RLAgent(abc.ABC):
         avg_return = total_return / num_episodes
         return avg_return, num_episodes
 
-    def _rollout_path(self, test):
+    def _rollout_path(self, test, init_state=None):
         path = rl_path.RLPath()
 
-        s = self._env.reset()
+        if init_state is None:
+            s = self._env.reset()
+        else:
+            s = self._env.reset(init_state)
+            
         s = np.array(s)
         path.states.append(s)
 
