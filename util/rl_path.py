@@ -55,3 +55,61 @@ class RLPath(object):
 
     def terminated(self):
         return self.terminate == Terminate.Null
+    
+class RLPath2(object):
+    def __init__(self, path):
+        self.states = np.array(path.states)
+        self.actions = np.array(path.actions)
+        self.rewards = np.array(path.rewards)
+        self.costs = - self.rewards
+        self.c = - self.rewards
+        self.g = self.compute_g(path)
+
+        self.terminate = Terminate.Null
+
+        self.clear()
+
+        return
+    
+    def compute_g(self, path):
+        g0 = (np.array(path.actions)[:,0] > 0).astype(np.float)
+        return g0.reshape(-1,1)
+    
+    def pathlength(self):
+        return len(self.actions)
+
+    def is_valid(self):
+        valid = True
+        l = self.pathlength()
+
+        valid &= len(self.states) == l + 1
+        valid &= len(self.actions) == l
+        valid &= len(self.rewards) == l
+        valid &= len(self.costs) == l
+        valid &= len(self.c) == l
+        valid &= len(self.g) == l
+        valid |= (l == 0)
+
+        return valid
+
+    def check_vals(self):
+        for key, vals in vars(self).items():
+            if type(vals) is list and len(vals) > 0:
+                for v in vals:
+                    if not np.isfinite(v).all():
+                        return False
+        return True
+
+    def clear(self):
+        for key, vals in vars(self).items():
+            if type(vals) is list:
+                vals.clear()
+
+        self.terminate = Terminate.Null
+        return
+
+    def calc_return(self):
+        return sum(self.rewards)
+
+    def terminated(self):
+        return self.terminate == Terminate.Null
