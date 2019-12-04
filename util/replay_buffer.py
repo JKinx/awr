@@ -47,26 +47,30 @@ class ReplayBuffer(object):
 
         return idx
 
-    def calculate_reward(self, lamb):
-        valid_ind = self.buffers["path_start"] != 0
+    def calculate_cost(self, lamb):
+        valid_ind = self.buffers["path_start"] != INVALID_IDX
 
         self.scale = np.max(np.abs(self.buffers["c"][valid_ind] + \
             np.dot(lamb[:-1], self.buffers["g"][valid_ind].T)))
 
-        self.buffers['rewards'][valid_ind] = (self.buffers["c"][valid_ind] + \
+        self.buffers['costs'][valid_ind] = (self.buffers["c"][valid_ind] + \
             np.dot(lamb[:-1], self.buffers["g"][valid_ind].T))/self.scale
 
+        self.buffers['rewards'][valid_ind] = - self.buffers['costs'][valid_ind]
+
     def set_reward(self, key, idx):
-        valid_ind = self.buffers["path_start"] != 0
+        valid_ind = self.buffers["path_start"] != INVALID_IDX
 
         if key == 'c':
             self.scale = np.max(np.abs(self.buffers['c'][valid_ind]))
-            self.data['rewards'] = self.data['c']/self.scale
+            self.data['costs'] = self.data['c']/self.scale
+            self.data['rewards'] = - self.data['costs']
 
         elif key == 'g':
             # Pick the idx'th constraint
             self.scale = np.max(np.abs(self.buffers['g'][valid_ind][:,idx]))
-            self.data['rewards'] = self.data['g'][:,idx]/self.scale
+            self.data['costs'] = self.data['g'][:,idx]/self.scale
+            self.data['rewards'] = - self.data['costs']
         else:
             raise
 
@@ -79,8 +83,8 @@ class ReplayBuffer(object):
         return ind
             
     def get_episodes(self):
-        starts, idx = np.unique(self.buffers["path_start"][buf.buffers["path_start"] != -1], True)
-        ends = self.buffers["path_end"][buf.buffers["path_start"] != -1][idx]
+        starts, idx = np.unique(self.buffers["path_start"][buf.buffers["path_start"] != INVALID_IDX], True)
+        ends = self.buffers["path_end"][buf.buffers["path_start"] != INVALID_IDX][idx]
         
         episodes = []
         for start, end in zip(starts, ends):
@@ -270,8 +274,6 @@ class ReplayBuffer(object):
                     dtype = val_type
                 
                 self.buffers[key] = np.zeros(shape, dtype=dtype)
-
-        self.buffer["rewards"] = np.zeros([self.buffer_size], dtype=np.float)
 
         return
 

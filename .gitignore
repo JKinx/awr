@@ -1,6 +1,6 @@
 # JetBrains IDE files
 .idea
-
+.ipynb_checkpoints/
 # Python Files
 *.pyc
 
