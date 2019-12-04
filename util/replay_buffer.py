@@ -58,19 +58,20 @@ class ReplayBuffer(object):
 
         self.buffers['rewards'][valid_ind] = - self.buffers['costs'][valid_ind]
 
-    def set_reward(self, key, idx):
+    def set_reward(self, key, idx=None):
         valid_ind = self.buffers["path_start"] != INVALID_IDX
 
         if key == 'c':
             self.scale = np.max(np.abs(self.buffers['c'][valid_ind]))
-            self.data['costs'] = self.data['c']/self.scale
-            self.data['rewards'] = - self.data['costs']
+            self.buffers['costs'] = self.buffers['c']/self.scale
+            self.buffers['rewards'] = - self.buffers['costs']
 
         elif key == 'g':
+            assert idx is not None
             # Pick the idx'th constraint
             self.scale = np.max(np.abs(self.buffers['g'][valid_ind][:,idx]))
-            self.data['costs'] = self.data['g'][:,idx]/self.scale
-            self.data['rewards'] = - self.data['costs']
+            self.buffers['costs'] = self.buffers['g'][:,idx]/self.scale
+            self.buffers['rewards'] = - self.buffers['costs']
         else:
             raise
 
@@ -83,8 +84,8 @@ class ReplayBuffer(object):
         return ind
             
     def get_episodes(self):
-        starts, idx = np.unique(self.buffers["path_start"][buf.buffers["path_start"] != INVALID_IDX], True)
-        ends = self.buffers["path_end"][buf.buffers["path_start"] != INVALID_IDX][idx]
+        starts, idx = np.unique(self.buffers["path_start"][self.buffers["path_start"] != INVALID_IDX], True)
+        ends = self.buffers["path_end"][self.buffers["path_start"] != INVALID_IDX][idx]
         
         episodes = []
         for start, end in zip(starts, ends):
@@ -92,10 +93,10 @@ class ReplayBuffer(object):
 
             S = self.buffers["states"][ind]
             A = self.buffers["actions"][ind]
-            R = self.buffers["rewards"][ind]
+            R = self.buffers["costs"][ind]
             
             ind = self.get_range((start + 1) % self.buffer_size, (end + 1) % self.buffer_size)
-            Sp = self.buffers["rewards"][ind]
+            Sp = self.buffers["costs"][ind]
             
             T = np.ones(len(S))
             T[-1] = 0
@@ -261,9 +262,9 @@ class ReplayBuffer(object):
         self.buffers[self.PATH_START_KEY] = INVALID_IDX * np.ones(self.buffer_size, dtype=int);
         self.buffers[self.PATH_END_KEY] = INVALID_IDX * np.ones(self.buffer_size, dtype=int);
         self.buffers[self.TERMINATE_KEY] = np.zeros(shape=[self.buffer_size], dtype=int)
-
+        
         for key, val in vars(path).items():
-            if type(val) is list:
+            if type(val) is np.ndarray:
                 val_type = type(val[0])
                 is_array = val_type == np.ndarray
                 if is_array:

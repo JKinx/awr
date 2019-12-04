@@ -49,7 +49,14 @@ class RLPath(object):
 
         self.terminate = Terminate.Null
         return
-
+    
+    def discounted_sum(self, discount):
+        factors = np.empty(len(self.rewards))
+        factors[0] = 1
+        factors[1:] = discount
+        factors = np.cumprod(factors)
+        return np.array(self.rewards) @ factors
+        
     def calc_return(self):
         return sum(self.rewards)
 
@@ -107,6 +114,19 @@ class RLPath2(object):
 
         self.terminate = Terminate.Null
         return
+    
+    def discounted_sum(self, discount, which="rewards"):
+        factors = np.empty(len(self.rewards))
+        factors[0] = 1
+        factors[1:] = discount
+        factors = np.cumprod(factors)
+        if which == "rewards":
+            main = self.rewards
+        elif which == "costs":
+            main = self.costs
+        else:
+            raise NotImplementedError
+        return main @ factors
 
     def calc_return(self):
         return sum(self.rewards)
