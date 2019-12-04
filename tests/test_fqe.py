@@ -59,7 +59,7 @@ def rollout_path(agent, action_std):
 
     path.terminate = agent._check_env_termination()
 
-    return path
+    return rl_path.RLPath2(path)  # in order to compute constraints
 
 
 class Policy(nn.Module):
@@ -148,7 +148,7 @@ class FittedQEvaluation(object):
             Rs = []
             Ts = []
 
-            for I,R,S2,T in episodes[i * batch_len : (i + 1) * batch_len]:
+            for I, R, S2, T in episodes[i * batch_len: (i + 1) * batch_len]:
                 Is.append(I)
                 Rs.append(R)
                 S2s.append(S2)
@@ -170,12 +170,15 @@ class FittedQEvaluation(object):
                 self.regressor.fit(Is, Os)
 
 
-def get_data(paths):
+def get_data(paths, constraint):
     episodes = []
 
     for path in paths:
         I = np.hstack([np.array(path.states)[:-1], np.array(path.actions)])
-        R = path.rewards
+        if constraint:
+            R = path.g[:, 0]  # for constraints
+        else:
+            R = path.rewards
         S2 = np.array(path.states)[1:]
         episodes.append((I, R, S2))
 
@@ -190,11 +193,14 @@ if __name__ == "__main__":
                         help='std in eval')
     parser.add_argument('--n_epochs', type=int, default=100,
                         help='number of epochs in FQE fit')
+    parser.add_argument('--constraint', type=bool, default=False,
+                        help='whether or not FQE should be evluated for the constraint')
     args = parser.parse_args()
 
     data_std = args.data_std
     configs = awr_configs.AWR_CONFIGS['Reacher-v2']
-    datas = get_data(pickle.load(open("../output/Reacher-v2_{}_offline/Reacher-v2_{}_offline_paths.pickle".format(data_std, data_std), "rb")))
+    datas = get_data(pickle.load(open("../output/Reacher-v2_{}_offline/Reacher-v2_{}_offline_paths.pickle".format(data_std, data_std), "rb")),
+                     args.constraint)
 
     terminals = []
     for el in datas:
