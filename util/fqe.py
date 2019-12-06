@@ -31,7 +31,7 @@ class FittedQEvaluation(object):
         
     def Q(self, state_actions, train=False):
         """Return the Q function estimate of `states` for each action"""  
-        if train:
+        if True:
             if not self.regressor_fitted():
                 return np.zeros(state_actions.shape[0])
             return self.regressor.predict(state_actions)
@@ -77,14 +77,14 @@ class FittedQEvaluation(object):
                 loss.append((self.regressor.fit(Is, Os)).cpu().item())
             losses.append(np.array(loss).mean())
             
-            if i % self.update_every == 0 and losses[-1] < best_loss:
-                best_loss = losses[-1]
-                self.best_regressor = deepcopy(self.regressor)
+#             if i % self.update_every == 0 and losses[-1] < best_loss:
+#                 best_loss = losses[-1]
+#                 self.best_regressor = deepcopy(self.regressor)
 
-                S = init_states
-                A = eval_policy(S)
-                SA = np.hstack([S, A]) 
-                values.append(self.Q(SA).mean())
+            S = init_states
+            A = eval_policy(S)
+            SA = np.hstack([S, A]) 
+            values.append(self.Q(SA).mean())
 
         return np.mean(values[-10:]), values, losses
 
