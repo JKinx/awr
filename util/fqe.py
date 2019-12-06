@@ -7,7 +7,7 @@ import torch.nn as nn
 import warnings
 warnings.filterwarnings("ignore")
 from util.qnn import Q
-from tqdm import tqdm_notebook as tqdm
+from tqdm import tqdm
 from copy import deepcopy
 
 def is_fitted(sklearn_regressor):
@@ -16,18 +16,18 @@ def is_fitted(sklearn_regressor):
     return hasattr(sklearn_regressor, 'n_outputs_')
 
 class FittedQEvaluation(object):
-    def __init__(self, discount, state_size, action_size, lr, update_every=1, num_batches=5):
+    def __init__(self, discount, state_size, action_size, lr, update_every=1, num_batches=5, epochs=100):
         self.discount = discount
         self.state_size = state_size
         self.action_size = action_size
         self.lr = lr
         self.update_every = update_every
         self.num_batches = num_batches
+        self.epochs = epochs
         self.best_regressor = None
         
     def regressor_fitted(self):
-        return True
-#         return self.regressor.fitted
+        return self.regressor.fitted
         
     def Q(self, state_actions, train=False):
         """Return the Q function estimate of `states` for each action"""  
@@ -81,19 +81,19 @@ class FittedQEvaluation(object):
                 best_loss = losses[-1]
                 self.best_regressor = deepcopy(self.regressor)
 
-            S = init_states
-            A = eval_policy(S)
-            SA = np.hstack([S, A]) 
-            values.append(self.Q(SA).mean())
+                S = init_states
+                A = eval_policy(S)
+                SA = np.hstack([S, A]) 
+                values.append(self.Q(SA).mean())
 
         return np.mean(values[-10:]), values, losses
 
-    def run(self, policy, which_cost, dataset, init_states, epochs=100, g_idx=None):
+    def run(self, policy, which_cost, dataset, init_states, g_idx=None):
         self.regressor = Q(self.state_size, self.action_size, self.lr).cuda()
         dataset.set_cost(which_cost, idx=g_idx)
         episodes = dataset.get_episodes()
 
-        return self.fit_Q(policy, episodes, init_states, epochs, self.discount)
+        return self.fit_Q(policy, episodes, init_states, self.epochs, self.discount)
 
 
 

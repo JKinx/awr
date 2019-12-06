@@ -12,12 +12,17 @@ from util.policy import Policy
 import awr_configs
 import learning.awr_agent as awr_agent
 
+def enable_gpus(gpu_str):
+    if (gpu_str is not ""):
+        os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
+    return
+
 class BestResponse(object):
     def __init__(self, args):
-        self.args = arg
+        self.args = args
 
     def run(self, dataset):
-        enable_gpus(self.arg.gpu)
+        enable_gpus(self.args.gpu)
 
         self.env = self.build_env(self.args.env)
         self.agent = self.build_agent(self.env)

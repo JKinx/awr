@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 
 class OptProblem(object):
-    def __init__(self, constraints, dataset, best_response_algorithm, online_convex_algorithm, fitted_off_policy_evaluation_algorithm, exact_policy_algorithm, lambda_bound = 1., epsilon = .01, env= None, max_iterations=None):
+    def __init__(self, constraints, dataset, init_states, best_response_algorithm, online_convex_algorithm, fitted_off_policy_evaluation_algorithm, exact_policy_algorithm, lambda_bound = 1., epsilon = .01, env= None, max_iterations=None):
         '''
         This is a problem of the form: min_pi C(pi) where G(pi) < eta.
 
@@ -23,6 +23,7 @@ class OptProblem(object):
         '''
 
         self.dataset = dataset
+        self.init_states = init_states
         self.constraints = constraints
         self.C = ValueFunction()
         self.G = ValueFunction()
@@ -45,7 +46,7 @@ class OptProblem(object):
         '''
         Best-response(lambda) = argmin_{pi} L(pi, lambda)
         '''
-        self.dataset.calculate_reward(lamb)
+        self.dataset.calculate_cost(lamb)
         policy = self.best_response_algorithm.run(self.dataset)
         return policy
 
@@ -96,21 +97,24 @@ class OptProblem(object):
 
         # print 'Calculating C(best_response(lambda_avg))'
         # dataset = deepcopy(self.dataset)
-        C_br, _ = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'c', self.dataset)
+        C_br, _, _ = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'c', self.dataset, self.init_states)
+        c_scale = self.dataset.scale
 
         # print 'Calculating G(best_response(lambda_avg))'
-        G_br, _ = []
+        G_br = []
+        g_scales = []
         for i in range(self.dim-1):
             # dataset = deepcopy(self.dataset)
-            output = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'g', self.dataset, g_idx=i)
+            output, _, _ = self.fitted_off_policy_evaluation_algorithm.run(best_policy,'g', self.dataset, 
+                                                                           self.init_states, g_idx=i)
+            g_scales.append(self.dataset.scale)
             G_br.append(output)
 
         G_br.append(0)
         G_br = np.array(G_br)
 
-        if self.env is not None:
-            print('Calculating exact C, G policy evaluation')
-            exact_c, exact_g, performance = self.exact_policy_evaluation.run(best_policy)
+        print('Calculating exact C, G policy evaluation')
+        exact_c, exact_g, performance = self.exact_policy_evaluation.run(best_policy, c_scale, np.array(g_scales))
 
         print()
         print('C(pi(lambda_avg)) Exact: %s, Evaluated: %s, Difference: %s' % (exact_c, C_br, np.abs(C_br-exact_c)))
@@ -124,7 +128,8 @@ class OptProblem(object):
 
         # update C
         # dataset = deepcopy(self.dataset)
-        C_pi, eval_values = self.fitted_off_policy_evaluation_algorithm.run(policy,'c', self.dataset)
+        C_pi, eval_values, _ = self.fitted_off_policy_evaluation_algorithm.run(policy,'c', self.dataset, self.init_states)
+        c_scale = self.dataset.scale
         self.C.append(C_pi)
         C_pi = np.array(C_pi)
         self.C.add_exact_values(values)
@@ -132,9 +137,12 @@ class OptProblem(object):
 
         # update G
         G_pis = []
+        g_scales = []
         for i in range(self.dim-1):
             # dataset = deepcopy(self.dataset)
-            output, eval_values = self.fitted_off_policy_evaluation_algorithm.run(policy,'g', self.dataset, g_idx = i)
+            output, eval_values, _ = self.fitted_off_policy_evaluation_algorithm.run(policy,'g', self.dataset, 
+                                                                                     self.init_states, g_idx = i)
+            g_scales.append(self.dataset.scale)
             G_pis.append(output)
             self.G.add_eval_values(eval_values, i)
         G_pis.append(0)
@@ -142,16 +150,16 @@ class OptProblem(object):
         G_pis = np.array(G_pis)
 
         # Get Exact Policy
-        exact_c, exact_g, performance = self.calc_exact(policy)
+        exact_c, exact_g, performance = self.calc_exact(policy, c_scale, np.array(g_scales))
 
         print()
         print('C(pi_%s) Exact: %s, Evaluated: %s, Difference: %s' % (iteration, exact_c, C_pi, np.abs(C_pi-exact_c)))
         print('G(pi_%s) Exact: %s, Evaluated: %s, Difference: %s' % (iteration, exact_g, G_pis[:-1], np.abs(G_pis[:-1]-exact_g)))
         print()
 
-    def calc_exact(self, policy):
+    def calc_exact(self, policy, c_scale, g_scales):
         print('Calculating exact C, G policy evaluation')
-        exact_c, exact_g, performance = self.exact_policy_evaluation.run(policy)
+        exact_c, exact_g, performance = self.exact_policy_evaluation.run(policy, c_scale, g_scales)
 
         self.C_exact.add_exact_values([performance])
         self.C_exact.append(exact_c)
